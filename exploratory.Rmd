@@ -1,0 +1,111 @@
+---
+title: "exploratory"
+author: "Conor Tompkins"
+date: "September 10, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+
+theme_set(theme_bw(base_size = 18))
+```
+
+
+```{r}
+read_csv("https://data.wprdc.org/dataset/8744b4f6-5525-49be-9054-401a2c4c2fac/resource/1a1329e2-418c-4bd3-af2c-cc334e7559af/download/restaurantinspectionviolationsalt.csv", progress = FALSE) %>% 
+  clean_names() -> df
+```
+
+```{r}
+df
+
+df %>% 
+  separate(bus_st_date, into = c("bus_st_date", "bus_st_time"), sep = " ") %>% 
+  mutate(bus_st_date = mdy(bus_st_date)) %>% 
+  separate(inspect_dt, into = c("inspect_dt", "inspect_time"), sep = " ") %>% 
+  mutate(inspect_dt = mdy(inspect_dt)) %>% 
+  select(-c(bus_st_time, inspect_time)) -> df
+
+df %>% 
+  mutate(rating_new = case_when(low == TRUE ~ "low",
+                                medium == TRUE ~ "medium",
+                                high == TRUE ~ "high",
+                                low != TRUE & medium != TRUE & high != TRUE ~ "none"),
+         rating_new = factor(rating_new, levels = c("none", "low", "medium", "high"))) -> df
+```
+
+```{r}
+df %>% 
+  count(id, sort = TRUE)
+
+df %>% 
+  count(id, facility_name, sort = TRUE)
+
+df %>%
+  count(description, sort = TRUE)
+```
+
+```{r}
+df %>% 
+  count(bus_st_date, sort = TRUE) %>% 
+  ggplot(aes(bus_st_date, n)) +
+  geom_line()
+```
+
+```{r}
+df %>% 
+  count(inspect_dt, sort = TRUE) %>% 
+  ggplot(aes(inspect_dt, n)) +
+  geom_point() +
+  geom_smooth()
+```
+
+```{r}
+df %>% 
+  count(description_new, sort = TRUE) %>% 
+  top_n(10) -> df_top_violations
+
+df %>% 
+  semi_join(df_top_violations) %>% 
+  count(description_new, inspect_dt) %>% 
+  ggplot(aes(inspect_dt, n, color = description_new)) +
+  geom_point(alpha = .2, show.legend = FALSE) +
+  geom_smooth(show.legend = FALSE) +
+  facet_wrap(~description_new, ncol = 2)
+```
+
+```{r}
+df %>% 
+  count(rating, sort = TRUE)
+
+df %>% 
+  count(low, sort = TRUE)
+
+df %>% 
+  count(medium, sort = TRUE)
+
+df %>% 
+  count(high, sort = TRUE)
+
+df %>% 
+  count(low, medium, high, sort = TRUE)
+
+df %>% 
+  count(rating_new, sort = TRUE)
+```
+
+```{r}
+df %>%
+  count(inspect_dt, rating_new) %>% 
+  ggplot(aes(inspect_dt, n, color = rating_new)) +
+  geom_point(alpha = .2) +
+  geom_smooth() +
+  facet_wrap(~rating_new)
+```
