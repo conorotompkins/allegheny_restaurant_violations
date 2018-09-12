@@ -3,6 +3,7 @@ title: "exploratory"
 author: "Conor Tompkins"
 date: "September 10, 2018"
 output: html_document
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -15,30 +16,45 @@ library(janitor)
 library(lubridate)
 
 theme_set(theme_bw(base_size = 18))
+
+options(scipen = 999, digits = 4)
 ```
 
 
 ```{r}
 read_csv("https://data.wprdc.org/dataset/8744b4f6-5525-49be-9054-401a2c4c2fac/resource/1a1329e2-418c-4bd3-af2c-cc334e7559af/download/restaurantinspectionviolationsalt.csv", progress = FALSE) %>% 
-  clean_names() -> df
+  clean_names() -> data
 ```
 
 ```{r}
-df
+data
 
-df %>% 
+data %>% 
   separate(bus_st_date, into = c("bus_st_date", "bus_st_time"), sep = " ") %>% 
   mutate(bus_st_date = mdy(bus_st_date)) %>% 
   separate(inspect_dt, into = c("inspect_dt", "inspect_time"), sep = " ") %>% 
   mutate(inspect_dt = mdy(inspect_dt)) %>% 
-  select(-c(bus_st_time, inspect_time)) -> df
+  select(-c(bus_st_time, inspect_time)) %>% 
+  mutate(inspect_length = as.duration(interval(start_time, end_time))) -> df
 
 df %>% 
-  mutate(rating_new = case_when(low == TRUE ~ "low",
-                                medium == TRUE ~ "medium",
-                                high == TRUE ~ "high",
-                                low != TRUE & medium != TRUE & high != TRUE ~ "none"),
-         rating_new = factor(rating_new, levels = c("none", "low", "medium", "high"))) -> df
+  mutate(end_time_flag = as.character(str_sub(end_time, 1, 2) == "00"),
+         inspect_dt_end = case_when(str_sub(start_time, 1, 2) >= 11 & end_time_flag == TRUE ~ (inspect_dt + 1),
+                                    end_time_flag == FALSE ~ inspect_dt)) %>% 
+  select(id, end_time_flag, inspect_dt, start_time, inspect_dt_end, end_time) %>% 
+  mutate(inspect_start = ymd_hms(str_c(inspect_dt, start_time, sep = " ")),
+         inspect_end = ymd_hms(str_c(inspect_dt_end, end_time, sep = " ")),
+         inspect_duration = as.duration(interval(inspect_start, inspect_end))) -> test
+
+test %>% 
+  ggplot(aes(as.numeric(inspect_duration))) +
+  geom_density()
+#df %>% 
+#  mutate(rating_new = case_when(low == TRUE ~ "low",
+###                                medium == TRUE ~ "medium",
+#                                high == TRUE ~ "high",
+#                                low != TRUE & medium != TRUE & high != TRUE ~ "none"),
+#         rating_new = factor(rating_new, levels = c("none", "low", "medium", "high"))) -> df
 ```
 
 ```{r}
@@ -73,10 +89,11 @@ df %>%
   top_n(10) -> df_top_violations
 
 df %>% 
+  select(-c(start_time, end_time)) %>% 
   semi_join(df_top_violations) %>% 
   count(description_new, inspect_dt) %>% 
   ggplot(aes(inspect_dt, n, color = description_new)) +
-  geom_point(alpha = .2, show.legend = FALSE) +
+  geom_point(alpha = .1, show.legend = FALSE) +
   geom_smooth(show.legend = FALSE) +
   facet_wrap(~description_new, ncol = 2)
 ```
@@ -99,6 +116,12 @@ df %>%
 
 df %>% 
   count(rating_new, sort = TRUE)
+
+df %>%
+  select(-c(start_time, end_time)) %>% 
+  mutate(rating_sum = low + medium + high) %>% 
+  filter(rating_sum > 1) %>% 
+  View()
 ```
 
 ```{r}
@@ -108,4 +131,28 @@ df %>%
   geom_point(alpha = .2) +
   geom_smooth() +
   facet_wrap(~rating_new)
+```
+
+```{r}
+df %>% 
+  ggplot(aes(start_time, end_time)) +
+  geom_point()
+
+df %>% 
+  select(start_time, end_time) %>% 
+  gather(measure, value) %>% 
+  ggplot(aes(value, fill = measure, color = measure)) +
+  geom_density(alpha = .3)
+
+
+df %>% 
+  select(inspect_dt, inspect_length) %>% 
+  ggplot(aes(inspect_dt, inspect_length)) +
+  geom_point()
+
+df %>%
+  ggplot(aes(inspect_length)) +
+  geom_freqpoly(bins = 500)
+
+
 ```
