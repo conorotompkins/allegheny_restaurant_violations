@@ -37,18 +37,23 @@ data %>%
   select(-c(bus_st_time, inspect_time)) %>% 
   mutate(inspect_length = as.duration(interval(start_time, end_time))) -> df
 
-df %>% 
-  mutate(end_time_flag = as.character(str_sub(end_time, 1, 2) == "00"),
-         inspect_dt_end = case_when(str_sub(start_time, 1, 2) >= 11 & end_time_flag == TRUE ~ (inspect_dt + 1),
-                                    end_time_flag == FALSE ~ inspect_dt)) %>% 
-  select(id, end_time_flag, inspect_dt, start_time, inspect_dt_end, end_time) %>% 
-  mutate(inspect_start = ymd_hms(str_c(inspect_dt, start_time, sep = " ")),
-         inspect_end = ymd_hms(str_c(inspect_dt_end, end_time, sep = " ")),
-         inspect_duration = as.duration(interval(inspect_start, inspect_end))) -> test
 
-test %>% 
-  ggplot(aes(as.numeric(inspect_duration))) +
-  geom_density()
+df %>%
+  mutate(inspect_dt_end = case_when(end_time < start_time ~ inspect_dt +1,
+                                    end_time >= start_time ~ inspect_dt),
+         inspect_start = ymd_hms(str_c(inspect_dt, start_time, sep = " ")),
+         inspect_end = ymd_hms(str_c(inspect_dt_end, end_time, sep = " ")),
+         inspect_duration = as.numeric(as.duration(interval(inspect_start, inspect_end)), "hours")) -> df
+
+#df %>% 
+#  mutate(end_time_flag = as.character(str_sub(end_time, 1, 2) == "00"),
+#         inspect_dt_end = case_when(str_sub(start_time, 1, 2) >= 11 & end_time_flag == TRUE ~ (inspect_dt + 1),
+#                                    end_time_flag == FALSE ~ inspect_dt)) %>% 
+#  select(id, end_time_flag, inspect_dt, start_time, inspect_dt_end, end_time) %>% 
+#  mutate(inspect_start = ymd_hms(str_c(inspect_dt, start_time, sep = " ")),
+#         inspect_end = ymd_hms(str_c(inspect_dt_end, end_time, sep = " ")),
+#         inspect_duration = as.duration(interval(inspect_start, inspect_end))) -> test
+
 #df %>% 
 #  mutate(rating_new = case_when(low == TRUE ~ "low",
 ###                                medium == TRUE ~ "medium",
@@ -114,8 +119,8 @@ df %>%
 df %>% 
   count(low, medium, high, sort = TRUE)
 
-df %>% 
-  count(rating_new, sort = TRUE)
+#df %>% 
+#  count(rating_new, sort = TRUE)
 
 df %>%
   select(-c(start_time, end_time)) %>% 
@@ -125,12 +130,12 @@ df %>%
 ```
 
 ```{r}
-df %>%
-  count(inspect_dt, rating_new) %>% 
-  ggplot(aes(inspect_dt, n, color = rating_new)) +
-  geom_point(alpha = .2) +
-  geom_smooth() +
-  facet_wrap(~rating_new)
+#df %>%
+#  count(inspect_dt, rating_new) %>% 
+#  ggplot(aes(inspect_dt, n, color = rating_new)) +
+#  geom_point(alpha = .2) +
+#  geom_smooth() +
+#  facet_wrap(~rating_new)
 ```
 
 ```{r}
@@ -146,13 +151,15 @@ df %>%
 
 
 df %>% 
-  select(inspect_dt, inspect_length) %>% 
-  ggplot(aes(inspect_dt, inspect_length)) +
-  geom_point()
+  select(inspect_dt, inspect_duration) %>% 
+  filter(inspect_duration <= 10) %>% 
+  ggplot(aes(inspect_dt, inspect_duration)) +
+  geom_point(alpha = .1) +
+  geom_smooth()
 
-df %>%
-  ggplot(aes(inspect_length)) +
-  geom_freqpoly(bins = 500)
+test %>% 
+  ggplot(aes(inspect_duration)) +
+  geom_density()
 
 
 ```
