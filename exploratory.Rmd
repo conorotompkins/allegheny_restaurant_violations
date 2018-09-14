@@ -7,7 +7,8 @@ runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE)
 ```
 
 ```{r}
@@ -75,6 +76,8 @@ df %>%
 
 ```{r}
 df %>% 
+  select(id, facility_name, bus_st_date) %>% 
+  distinct() %>% 
   count(bus_st_date, sort = TRUE) %>% 
   ggplot(aes(bus_st_date, n)) +
   geom_line()
@@ -82,9 +85,9 @@ df %>%
 
 ```{r}
 df %>% 
-  count(inspect_dt, sort = TRUE) %>% 
+  count(id, facility_name, inspect_dt, sort = TRUE) %>% 
   ggplot(aes(inspect_dt, n)) +
-  geom_point() +
+  geom_jitter(alpha = .1) +
   geom_smooth()
 ```
 
@@ -130,12 +133,25 @@ df %>%
 ```
 
 ```{r}
-#df %>%
-#  count(inspect_dt, rating_new) %>% 
-#  ggplot(aes(inspect_dt, n, color = rating_new)) +
-#  geom_point(alpha = .2) +
-#  geom_smooth() +
-#  facet_wrap(~rating_new)
+df %>%
+  select(encounter, facility_name, inspect_dt, low, medium, high) %>% 
+  arrange(inspect_dt) %>% 
+  gather(level, value, -c(encounter, facility_name, inspect_dt)) %>% 
+  filter(value == TRUE) %>% 
+  mutate(inspect_year = year(inspect_dt),
+         inspect_month = month(inspect_dt, label = T),
+         inspect_dt = str_c(inspect_year, inspect_month, sep = " "),
+         inspect_dt = as.factor(inspect_dt)) %>% 
+  count(inspect_dt, level, sort = F) %>% 
+  complete(inspect_dt, level) %>% 
+  replace_na(list(n = 0)) %>% 
+  ggplot(aes(inspect_dt, n, fill = level, group = level)) +
+  #geom_point(alpha = .2) +
+  #geom_smooth() +
+  geom_area() +
+  scale_fill_viridis_d() +
+  theme(panel.grid.minor = element_blank())
+  #facet_wrap(~level)
 ```
 
 ```{r}
@@ -152,14 +168,18 @@ df %>%
 
 df %>% 
   select(inspect_dt, inspect_duration) %>% 
+  ggplot(aes(inspect_dt, inspect_duration)) +
+  geom_point(alpha = .1) +
+  geom_smooth()
+
+df %>% 
+  select(inspect_dt, inspect_duration) %>% 
   filter(inspect_duration <= 10) %>% 
   ggplot(aes(inspect_dt, inspect_duration)) +
   geom_point(alpha = .1) +
   geom_smooth()
 
-test %>% 
+df %>% 
   ggplot(aes(inspect_duration)) +
   geom_density()
-
-
 ```
